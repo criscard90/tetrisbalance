@@ -23,44 +23,39 @@
     }
     #header {
       position: absolute;
-      top: 0;
-      left: 0;
-      right: 0;
-      padding: 15px 20px;
-      display: flex;
-      justify-content: space-between;
-      align-items: flex-start;
-      z-index: 10;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      text-align: center;
+      z-index: 1;
       pointer-events: none;
+      opacity: 0.15;
     }
     #title-section {
       text-align: center;
-      flex: 1;
     }
     h1 { 
-      font-size: 1.8rem; 
+      font-size: 3rem; 
       text-transform: uppercase; 
-      letter-spacing: 4px; 
+      letter-spacing: 8px; 
       color: #ff00ff;
-      text-shadow: 0 0 10px #ff00ff, 0 0 20px #ff00ff, 0 0 40px #ff00ff;
-      animation: neonPulse 2s ease-in-out infinite;
+      text-shadow: 0 0 20px #ff00ff, 0 0 40px #ff00ff;
     }
     .score { 
-      font-size: 2.5rem; 
+      font-size: 4rem; 
       font-weight: bold; 
-      margin-top: 5px;
+      margin-top: 10px;
       color: #00ffff;
-      text-shadow: 0 0 10px #00ffff, 0 0 20px #00ffff;
+      text-shadow: 0 0 20px #00ffff, 0 0 40px #00ffff;
     }
     .lives { 
+      position: absolute;
+      top: 15px;
+      left: 20px;
       font-size: 1rem; 
       color: #ff0066;
       text-shadow: 0 0 5px #ff0066;
-      min-width: 80px;
-    }
-    @keyframes neonPulse {
-      0%, 100% { opacity: 1; }
-      50% { opacity: 0.8; }
+      z-index: 10;
     }
     canvas { 
       background: #0d0d1a; 
@@ -114,6 +109,7 @@
       border: 3px solid #ff00ff;
       border-radius: 10px;
       box-shadow: 0 0 30px #ff00ff, 0 0 60px rgba(255,0,255,0.5);
+      white-space: nowrap;
     }
     #gameOver h2 { 
       font-size: 3rem; 
@@ -168,13 +164,11 @@
 
   <div class="scanlines"></div>
   
+  <div class="lives" id="lives">❤️ ❤️ ❤️</div>
+
   <div id="header">
-    <div class="lives" id="lives">❤️ ❤️ ❤️</div>
-    <div id="title-section">
-      <h1>Tetris Balance</h1>
-      <div class="score" id="score">0</div>
-    </div>
-    <div style="width: 80px;"></div>
+    <h1>Tetris Balance</h1>
+    <div class="score" id="score">0</div>
   </div>
 
   <div id="controlsLeft">
@@ -214,7 +208,9 @@
     const platformWidth = 160;
     const platform = Bodies.rectangle(width / 2, height - 100, platformWidth, 20, {
       isStatic: true,
-      friction: 0.8,
+      friction: 1,
+      frictionStatic: 1.5,
+      restitution: 0,
       render: { fillStyle: '#e2e8f0' }
     });
     
@@ -247,7 +243,8 @@
     let spawnX = width / 2;
     let moveDirection = 1;
     let droppedBodies = [];
-    let fallenPieces = new Set(); // Pezzi che hanno già toccato il pavimento
+    let stablePieces = []; // Pezzi stabili sulla piattaforma
+    let fallenPieces = new Set();
 
     // Generatore di Pezzi Tetris composti in Matter.js
     function createTetrisPiece(x, y, type) {
@@ -273,8 +270,10 @@
 
       const compoundBody = Body.create({
         parts: parts,
-        friction: 0.6,
-        restitution: 0.1
+        friction: 0.9,
+        frictionStatic: 1.2,
+        restitution: 0.01,
+        density: 0.005
       });
 
       compoundBody.color = template.color;
@@ -340,8 +339,10 @@
 
       const compoundBody = Body.create({
         parts: parts,
-        friction: 0.6,
-        restitution: 0.1
+        friction: 0.9,
+        frictionStatic: 1.2,
+        restitution: 0.01,
+        density: 0.005
       });
 
       compoundBody.color = SHAPES[type].color;
@@ -365,16 +366,43 @@
       if (!currentPiece || isGameOver) return;
 
       Body.setStatic(currentPiece, false);
-      // Piccola spinta casuale sulla rotazione per aumentare l'instabilità fisica
-      Body.setAngularVelocity(currentPiece, (Math.random() - 0.5) * 0.05); 
+      // Fisica migliorata: meno rotazione casuale, più attrito
+      Body.setAngularVelocity(currentPiece, (Math.random() - 0.5) * 0.01); 
       
-      droppedBodies.push(currentPiece);
+      // Aggiungi il pezzo alla lista dei pezzi caduti
+      const pieceInfo = {
+        body: currentPiece,
+        timeDropped: Date.now(),
+        counted: false
+      };
+      droppedBodies.push(pieceInfo);
       currentPiece = null;
-      score++;
-      document.getElementById('score').innerText = score;
-
+      
       // Genera il prossimo pezzo dopo un breve ritardo
       setTimeout(spawnPiece, 1200);
+    }
+
+    // Aggiorna il punteggio contando solo i pezzi stabili sulla piattaforma
+    function updateScore() {
+      const now = Date.now();
+      let stableCount = 0;
+      
+      for (const piece of droppedBodies) {
+        // Considera stabili i pezzi che sono caduti da almeno 1.5 secondi
+        // e non sono nel set dei pezzi caduti
+        if (!piece.counted && !fallenPieces.has(piece.body) && (now - piece.timeDropped) > 1500) {
+          // Verifica che il pezzo sia ancora nella zona della piattaforma
+          const position = piece.body.position;
+          if (position.y < height - 50 && position.y > 0) {
+            stableCount++;
+            piece.counted = true;
+            stablePieces.push(piece.body);
+          }
+        }
+      }
+      
+      score += stableCount;
+      document.getElementById('score').innerText = score;
     }
 
     // Aggiorna la visualizzazione delle vite
@@ -398,10 +426,11 @@
     // Restart del gioco
     function restartGame() {
       // Rimuovi tutti i pezzi caduti
-      droppedBodies.forEach(body => {
-        Composite.remove(engine.world, body);
+      droppedBodies.forEach(piece => {
+        Composite.remove(engine.world, piece.body);
       });
       droppedBodies = [];
+      stablePieces = [];
       fallenPieces.clear();
       
       // Rimuovi il pezzo corrente se presente
@@ -435,20 +464,18 @@
 
     // Controlla se un corpo appartiene a un pezzo caduto
     function isFromDroppedPiece(body) {
-      // Controlla direttamente
-      if (droppedBodies.includes(body)) return true;
-      // Controlla se è un parte di un pezzo composto
-      for (const droppedBody of droppedBodies) {
-        if (droppedBody.parts && droppedBody.parts.includes(body)) return true;
+      for (const piece of droppedBodies) {
+        if (piece.body === body) return true;
+        if (piece.body.parts && piece.body.parts.includes(body)) return true;
       }
       return false;
     }
 
     // Trova il pezzo principale da un corpo (parte o tutto)
     function findRootPiece(body) {
-      if (droppedBodies.includes(body)) return body;
-      for (const droppedBody of droppedBodies) {
-        if (droppedBody.parts && droppedBody.parts.includes(body)) return droppedBody;
+      for (const piece of droppedBodies) {
+        if (piece.body === body) return piece.body;
+        if (piece.body.parts && piece.body.parts.includes(body)) return piece.body;
       }
       return null;
     }
@@ -480,6 +507,23 @@
         if (spawnX > width - 100 || spawnX < 100) moveDirection *= -1;
         Body.setPosition(currentPiece, { x: spawnX, y: 80 });
       }
+
+      // Aggiorna il punteggio periodicamente
+      updateScore();
+
+      // Applica damping ai pezzi per ridurre movimenti indebiti
+      droppedBodies.forEach(piece => {
+        const body = piece.body;
+        // Riduci gradualmente la velocità angolare
+        Body.setAngularVelocity(body, body.angularVelocity * 0.98);
+        // Se il pezzo è quasi fermo, fermalo completamente
+        if (Math.abs(body.angularVelocity) < 0.001) {
+          Body.setAngularVelocity(body, 0);
+        }
+        if (Math.abs(body.velocity.x) < 0.01 && Math.abs(body.velocity.y) < 0.01) {
+          Body.setVelocity(body, { x: 0, y: 0 });
+        }
+      });
 
       // Render personalizzato su Canvas
       ctx.clearRect(0, 0, width, height);
