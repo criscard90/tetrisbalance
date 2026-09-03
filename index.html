@@ -49,13 +49,32 @@
       text-shadow: 0 0 20px #00ffff, 0 0 40px #00ffff;
     }
     .lives { 
-      position: absolute;
-      top: 15px;
-      left: 20px;
-      font-size: 1rem; 
+      font-size: 1.5rem; 
       color: #ff0066;
-      text-shadow: 0 0 5px #ff0066;
-      z-index: 10;
+      text-shadow: 0 0 10px #ff0066, 0 0 20px #ff0066;
+      margin-top: 15px;
+    }
+    #bgImage {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      opacity: 0.12;
+      z-index: 0;
+      filter: saturate(0.5) contrast(1.2) hue-rotate(280deg);
+      pointer-events: none;
+    }
+    #overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: radial-gradient(ellipse at center, transparent 0%, rgba(10,10,26,0.7) 100%);
+      z-index: 1;
+      pointer-events: none;
     }
     canvas { 
       background: #0d0d1a; 
@@ -164,11 +183,13 @@
 
   <div class="scanlines"></div>
   
-  <div class="lives" id="lives">❤️ ❤️ ❤️</div>
+  <img id="bgImage" src="" alt="">
+  <div id="overlay"></div>
 
   <div id="header">
     <h1>Tetris Balance</h1>
     <div class="score" id="score">0</div>
+    <div class="lives" id="lives">❤️ ❤️ ❤️</div>
   </div>
 
   <div id="controlsLeft">
@@ -196,6 +217,38 @@
     // Engine & Runner
     const engine = Engine.create();
     const runner = Runner.create();
+
+    // Gestione immagini di sfondo casuali senza ripetizione
+    const bgImages = [
+      'img/tetris1.png',
+      'img/tetris2.png',
+      'img/tetris3.png',
+      'img/tetris4.png',
+      'img/tetris5.png',
+      'img/tetris6.png'
+    ];
+    let usedImages = [];
+    
+    function setRandomBgImage() {
+      // Se tutte le immagini sono state usate, resetta
+      if (usedImages.length >= bgImages.length) {
+        usedImages = [];
+      }
+      
+      // Filtra le immagini non ancora usate
+      const available = bgImages.filter(img => !usedImages.includes(img));
+      
+      // Scegli una immagine casuale tra quelle disponibili
+      const randomIndex = Math.floor(Math.random() * available.length);
+      const selectedImage = available[randomIndex];
+      
+      // Imposta l'immagine di sfondo
+      document.getElementById('bgImage').src = selectedImage;
+      usedImages.push(selectedImage);
+    }
+    
+    // Imposta l'immagine iniziale
+    setRandomBgImage();
 
     // Render Canvas personalizzato
     const canvas = document.createElement('canvas');
@@ -446,6 +499,9 @@
       document.getElementById('score').innerText = score;
       updateLivesDisplay();
       document.getElementById('gameOver').style.display = 'none';
+      
+      // Cambia immagine di sfondo
+      setRandomBgImage();
       
       // Genera un nuovo pezzo
       spawnPiece();
