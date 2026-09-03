@@ -20,28 +20,36 @@
     #ui {
       position: absolute;
       top: 20px;
-      text-align: center;
+      left: 20px;
+      text-align: left;
       z-index: 10;
       pointer-events: none;
     }
     h1 { font-size: 1.5rem; text-transform: uppercase; letter-spacing: 2px; color: #38bdf8; }
     .score { font-size: 2.5rem; font-weight: bold; margin-top: 5px; }
-    .lives { font-size: 1.2rem; margin-top: 5px; color: #f87171; }
-    #controls {
+    .lives { font-size: 1.5rem; margin-top: 10px; color: #f87171; }
+    #controlsLeft {
       position: absolute;
-      bottom: 30px;
-      display: flex;
-      gap: 15px;
+      left: 10px;
+      top: 50%;
+      transform: translateY(-50%);
+      z-index: 10;
+    }
+    #controlsRight {
+      position: absolute;
+      right: 10px;
+      top: 50%;
+      transform: translateY(-50%);
       z-index: 10;
     }
     .btn {
-      width: 70px;
-      height: 70px;
+      width: 80px;
+      height: 80px;
       border-radius: 50%;
       border: 3px solid #38bdf8;
       background: rgba(56, 189, 248, 0.2);
       color: #38bdf8;
-      font-size: 1.5rem;
+      font-size: 2rem;
       cursor: pointer;
       display: flex;
       align-items: center;
@@ -86,8 +94,11 @@
     <div class="lives" id="lives">❤️ ❤️ ❤️</div>
   </div>
 
-  <div id="controls">
+  <div id="controlsLeft">
     <div class="btn" id="rotateBtn">↻</div>
+  </div>
+
+  <div id="controlsRight">
     <div class="btn" id="dropBtn">↓</div>
   </div>
 
@@ -125,7 +136,7 @@
     });
     
     // Pavimento "Game Over" (sotto la piattaforma)
-    const floor = Bodies.rectangle(width / 2, height + 50, width * 2, 50, {
+    const floor = Bodies.rectangle(width / 2, height + 100, width * 2, 50, {
       isStatic: true,
       isSensor: true,
       label: 'floor'
@@ -153,6 +164,7 @@
     let spawnX = width / 2;
     let moveDirection = 1;
     let droppedBodies = [];
+    let fallenPieces = new Set(); // Pezzi che hanno già toccato il pavimento
 
     // Generatore di Pezzi Tetris composti in Matter.js
     function createTetrisPiece(x, y, type) {
@@ -307,6 +319,7 @@
         Composite.remove(engine.world, body);
       });
       droppedBodies = [];
+      fallenPieces.clear();
       
       // Rimuovi il pezzo corrente se presente
       if (currentPiece) {
@@ -348,13 +361,24 @@
       return false;
     }
 
+    // Trova il pezzo principale da un corpo (parte o tutto)
+    function findRootPiece(body) {
+      if (droppedBodies.includes(body)) return body;
+      for (const droppedBody of droppedBodies) {
+        if (droppedBody.parts && droppedBody.parts.includes(body)) return droppedBody;
+      }
+      return null;
+    }
+
     // Controllo collisione - Perdi vita quando il pezzo tocca il pavimento
     Events.on(engine, 'collisionStart', (event) => {
       event.pairs.forEach(pair => {
         if (pair.bodyA.label === 'floor' || pair.bodyB.label === 'floor') {
           const otherBody = pair.bodyA.label === 'floor' ? pair.bodyB : pair.bodyA;
           // Controlla che sia un pezzo caduto (non il pezzo corrente che oscilla)
-          if (isFromDroppedPiece(otherBody)) {
+          const rootPiece = findRootPiece(otherBody);
+          if (rootPiece && !fallenPieces.has(rootPiece)) {
+            fallenPieces.add(rootPiece);
             loseLife();
           }
         }
