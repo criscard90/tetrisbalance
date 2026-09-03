@@ -7,58 +7,99 @@
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; }
     body {
-      background: #0f172a;
+      background: #0a0a1a;
       color: #fff;
-      font-family: system-ui, -apple-system, sans-serif;
+      font-family: 'Courier New', monospace;
       overflow: hidden;
       display: flex;
       flex-direction: column;
       align-items: center;
       justify-content: center;
       height: 100vh;
+      background-image: 
+        linear-gradient(rgba(0,255,255,0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(0,255,255,0.03) 1px, transparent 1px);
+      background-size: 50px 50px;
     }
-    #ui {
+    #header {
       position: absolute;
-      top: 20px;
-      left: 20px;
-      text-align: left;
+      top: 0;
+      left: 0;
+      right: 0;
+      padding: 15px 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
       z-index: 10;
       pointer-events: none;
     }
-    h1 { font-size: 1.5rem; text-transform: uppercase; letter-spacing: 2px; color: #38bdf8; }
-    .score { font-size: 2.5rem; font-weight: bold; margin-top: 5px; }
-    .lives { font-size: 1.5rem; margin-top: 10px; color: #f87171; }
+    #title-section {
+      text-align: center;
+      flex: 1;
+    }
+    h1 { 
+      font-size: 1.8rem; 
+      text-transform: uppercase; 
+      letter-spacing: 4px; 
+      color: #ff00ff;
+      text-shadow: 0 0 10px #ff00ff, 0 0 20px #ff00ff, 0 0 40px #ff00ff;
+      animation: neonPulse 2s ease-in-out infinite;
+    }
+    .score { 
+      font-size: 2.5rem; 
+      font-weight: bold; 
+      margin-top: 5px;
+      color: #00ffff;
+      text-shadow: 0 0 10px #00ffff, 0 0 20px #00ffff;
+    }
+    .lives { 
+      font-size: 1rem; 
+      color: #ff0066;
+      text-shadow: 0 0 5px #ff0066;
+      min-width: 80px;
+    }
+    @keyframes neonPulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.8; }
+    }
+    canvas { 
+      background: #0d0d1a; 
+      box-shadow: 0 0 30px rgba(255,0,255,0.3), 0 0 60px rgba(0,255,255,0.2), inset 0 0 50px rgba(0,0,0,0.5); 
+      border: 2px solid #ff00ff;
+      border-radius: 4px;
+    }
     #controlsLeft {
       position: absolute;
-      left: 10px;
-      top: 50%;
-      transform: translateY(-50%);
+      left: 15px;
+      bottom: 120px;
       z-index: 10;
     }
     #controlsRight {
       position: absolute;
-      right: 10px;
-      top: 50%;
-      transform: translateY(-50%);
+      right: 15px;
+      bottom: 120px;
       z-index: 10;
     }
     .btn {
-      width: 80px;
-      height: 80px;
-      border-radius: 50%;
-      border: 3px solid #38bdf8;
-      background: rgba(56, 189, 248, 0.2);
-      color: #38bdf8;
-      font-size: 2rem;
+      width: 70px;
+      height: 70px;
+      border-radius: 8px;
+      border: 2px solid #00ffff;
+      background: rgba(0,255,255,0.1);
+      color: #00ffff;
+      font-size: 1.8rem;
       cursor: pointer;
       display: flex;
       align-items: center;
       justify-content: center;
       transition: all 0.2s;
+      text-shadow: 0 0 10px #00ffff;
+      box-shadow: 0 0 15px rgba(0,255,255,0.3), inset 0 0 15px rgba(0,255,255,0.1);
     }
     .btn:active {
-      background: rgba(56, 189, 248, 0.5);
+      background: rgba(0,255,255,0.3);
       transform: scale(0.95);
+      box-shadow: 0 0 25px rgba(0,255,255,0.5);
     }
     #gameOver {
       position: absolute;
@@ -68,30 +109,72 @@
       text-align: center;
       z-index: 20;
       display: none;
+      background: rgba(10,10,26,0.95);
+      padding: 40px 60px;
+      border: 3px solid #ff00ff;
+      border-radius: 10px;
+      box-shadow: 0 0 30px #ff00ff, 0 0 60px rgba(255,0,255,0.5);
     }
-    #gameOver h2 { font-size: 2.5rem; color: #f87171; margin-bottom: 10px; }
-    #gameOver p { font-size: 1.2rem; margin-bottom: 20px; }
+    #gameOver h2 { 
+      font-size: 3rem; 
+      color: #ff0066; 
+      margin-bottom: 10px; 
+      text-shadow: 0 0 10px #ff0066, 0 0 20px #ff0066;
+      animation: blink 1s step-end infinite;
+    }
+    #gameOver p { font-size: 1.2rem; margin-bottom: 20px; color: #00ffff; }
+    @keyframes blink {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0; }
+    }
     #restartBtn {
       padding: 15px 40px;
       font-size: 1.2rem;
-      border: none;
+      border: 2px solid #00ffff;
       border-radius: 8px;
-      background: #38bdf8;
-      color: #0f172a;
+      background: rgba(0,255,255,0.2);
+      color: #00ffff;
       cursor: pointer;
       font-weight: bold;
+      font-family: 'Courier New', monospace;
+      text-shadow: 0 0 10px #00ffff;
+      box-shadow: 0 0 15px rgba(0,255,255,0.3);
+      transition: all 0.2s;
     }
-    #restartBtn:hover { background: #0ea5e9; }
-    canvas { background: #1e293b; box-shadow: 0 10px 30px rgba(0,0,0,0.5); border-radius: 8px; }
+    #restartBtn:hover { 
+      background: rgba(0,255,255,0.4); 
+      box-shadow: 0 0 25px rgba(0,255,255,0.5);
+    }
+    .scanlines {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      pointer-events: none;
+      background: repeating-linear-gradient(
+        0deg,
+        rgba(0,0,0,0.1) 0px,
+        rgba(0,0,0,0.1) 1px,
+        transparent 1px,
+        transparent 2px
+      );
+      z-index: 100;
+    }
   </style>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/matter-js/0.19.0/matter.min.js"></script>
 </head>
 <body>
 
-  <div id="ui">
-    <h1>Tetris Balance</h1>
-    <div class="score" id="score">0</div>
+  <div class="scanlines"></div>
+  
+  <div id="header">
     <div class="lives" id="lives">❤️ ❤️ ❤️</div>
+    <div id="title-section">
+      <h1>Tetris Balance</h1>
+      <div class="score" id="score">0</div>
+    </div>
+    <div style="width: 80px;"></div>
   </div>
 
   <div id="controlsLeft">
