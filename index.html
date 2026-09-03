@@ -26,6 +26,54 @@
     }
     h1 { font-size: 1.5rem; text-transform: uppercase; letter-spacing: 2px; color: #38bdf8; }
     .score { font-size: 2.5rem; font-weight: bold; margin-top: 5px; }
+    .lives { font-size: 1.2rem; margin-top: 5px; color: #f87171; }
+    #controls {
+      position: absolute;
+      bottom: 30px;
+      display: flex;
+      gap: 15px;
+      z-index: 10;
+    }
+    .btn {
+      width: 70px;
+      height: 70px;
+      border-radius: 50%;
+      border: 3px solid #38bdf8;
+      background: rgba(56, 189, 248, 0.2);
+      color: #38bdf8;
+      font-size: 1.5rem;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.2s;
+    }
+    .btn:active {
+      background: rgba(56, 189, 248, 0.5);
+      transform: scale(0.95);
+    }
+    #gameOver {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      text-align: center;
+      z-index: 20;
+      display: none;
+    }
+    #gameOver h2 { font-size: 2.5rem; color: #f87171; margin-bottom: 10px; }
+    #gameOver p { font-size: 1.2rem; margin-bottom: 20px; }
+    #restartBtn {
+      padding: 15px 40px;
+      font-size: 1.2rem;
+      border: none;
+      border-radius: 8px;
+      background: #38bdf8;
+      color: #0f172a;
+      cursor: pointer;
+      font-weight: bold;
+    }
+    #restartBtn:hover { background: #0ea5e9; }
     canvas { background: #1e293b; box-shadow: 0 10px 30px rgba(0,0,0,0.5); border-radius: 8px; }
   </style>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/matter-js/0.19.0/matter.min.js"></script>
@@ -35,6 +83,18 @@
   <div id="ui">
     <h1>Tetris Balance</h1>
     <div class="score" id="score">0</div>
+    <div class="lives" id="lives">❤️ ❤️ ❤️</div>
+  </div>
+
+  <div id="controls">
+    <div class="btn" id="rotateBtn">↻</div>
+    <div class="btn" id="dropBtn">↓</div>
+  </div>
+
+  <div id="gameOver">
+    <h2>GAME OVER</h2>
+    <p>Punteggio finale: <span id="finalScore">0</span></p>
+    <button id="restartBtn">RIGIOCA</button>
   </div>
 
   <script>
@@ -85,10 +145,14 @@
     };
 
     let currentPiece = null;
+    let currentPieceType = null;
+    let currentRotation = 0;
     let score = 0;
+    let lives = 3;
     let isGameOver = false;
     let spawnX = width / 2;
     let moveDirection = 1;
+    let droppedBodies = [];
 
     // Generatore di Pezzi Tetris composti in Matter.js
     function createTetrisPiece(x, y, type) {
@@ -122,13 +186,81 @@
       return compoundBody;
     }
 
+    // Ruota la matrice di una forma di 90 gradi in senso orario
+    function rotateShape(shape) {
+      const rows = shape.length;
+      const cols = shape[0].length;
+      const rotated = [];
+      for (let c = 0; c < cols; c++) {
+        const newRow = [];
+        for (let r = rows - 1; r >= 0; r--) {
+          newRow.push(shape[r][c]);
+        }
+        rotated.push(newRow);
+      }
+      return rotated;
+    }
+
+    // Ruota il pezzo corrente
+    function rotatePiece() {
+      if (!currentPiece || isGameOver) return;
+      
+      // Rimuovi il pezzo corrente dal mondo
+      Composite.remove(engine.world, currentPiece);
+      
+      // Incrementa rotazione
+      currentRotation = (currentRotation + 1) % 4;
+      
+      // Ricrea il pezzo con la nuova rotazione
+      currentPiece = createTetrisPieceWithRotation(width / 2, 80, currentPieceType, currentRotation);
+      Body.setStatic(currentPiece, true);
+      Composite.add(engine.world, currentPiece);
+    }
+
+    // Crea un pezzo con una rotazione specifica
+    function createTetrisPieceWithRotation(x, y, type, rotation) {
+      let shape = SHAPES[type].shape;
+      for (let i = 0; i < rotation; i++) {
+        shape = rotateShape(shape);
+      }
+      
+      const parts = [];
+      const rows = shape.length;
+      const cols = shape[0].length;
+
+      for (let r = 0; r < rows; r++) {
+        for (let c = 0; c < cols; c++) {
+          if (shape[r][c] === 1) {
+            const block = Bodies.rectangle(
+              x + (c * BLOCK_SIZE),
+              y + (r * BLOCK_SIZE),
+              BLOCK_SIZE - 2,
+              BLOCK_SIZE - 2,
+              { render: { fillStyle: SHAPES[type].color } }
+            );
+            parts.push(block);
+          }
+        }
+      }
+
+      const compoundBody = Body.create({
+        parts: parts,
+        friction: 0.6,
+        restitution: 0.1
+      });
+
+      compoundBody.color = SHAPES[type].color;
+      return compoundBody;
+    }
+
     //Crea il pezzo sospeso in alto che oscilla
     function spawnPiece() {
       if (isGameOver) return;
       const keys = Object.keys(SHAPES);
-      const randomType = keys[Math.floor(Math.random() * keys.length)];
+      currentPieceType = keys[Math.floor(Math.random() * keys.length)];
+      currentRotation = 0;
       
-      currentPiece = createTetrisPiece(width / 2, 80, randomType);
+      currentPiece = createTetrisPieceWithRotation(width / 2, 80, currentPieceType, currentRotation);
       Body.setStatic(currentPiece, true);
       Composite.add(engine.world, currentPiece);
     }
@@ -141,6 +273,7 @@
       // Piccola spinta casuale sulla rotazione per aumentare l'instabilità fisica
       Body.setAngularVelocity(currentPiece, (Math.random() - 0.5) * 0.05); 
       
+      droppedBodies.push(currentPiece);
       currentPiece = null;
       score++;
       document.getElementById('score').innerText = score;
@@ -149,19 +282,87 @@
       setTimeout(spawnPiece, 1200);
     }
 
-    // Gestione Eventi Tap / Spazio
-    window.addEventListener('pointerdown', dropPiece);
-    window.addEventListener('keydown', (e) => { if (e.code === 'Space') dropPiece(); });
+    // Aggiorna la visualizzazione delle vite
+    function updateLivesDisplay() {
+      const hearts = '❤️ '.repeat(lives).trim();
+      document.getElementById('lives').innerText = hearts;
+    }
 
-    // Controllo collisione Game Over (Pezzo caduto oltre il piatto)
+    // Perdi una vita
+    function loseLife() {
+      lives--;
+      updateLivesDisplay();
+      
+      if (lives <= 0) {
+        isGameOver = true;
+        document.getElementById('finalScore').innerText = score;
+        document.getElementById('gameOver').style.display = 'block';
+      }
+    }
+
+    // Restart del gioco
+    function restartGame() {
+      // Rimuovi tutti i pezzi caduti
+      droppedBodies.forEach(body => {
+        Composite.remove(engine.world, body);
+      });
+      droppedBodies = [];
+      
+      // Rimuovi il pezzo corrente se presente
+      if (currentPiece) {
+        Composite.remove(engine.world, currentPiece);
+        currentPiece = null;
+      }
+      
+      // Resetta le variabili
+      score = 0;
+      lives = 3;
+      isGameOver = false;
+      currentRotation = 0;
+      
+      // Aggiorna UI
+      document.getElementById('score').innerText = score;
+      updateLivesDisplay();
+      document.getElementById('gameOver').style.display = 'none';
+      
+      // Genera un nuovo pezzo
+      spawnPiece();
+    }
+
+    // Gestione Eventi Tap / Spazio
+    document.getElementById('dropBtn').addEventListener('pointerdown', dropPiece);
+    document.getElementById('rotateBtn').addEventListener('pointerdown', rotatePiece);
+    window.addEventListener('keydown', (e) => { 
+      if (e.code === 'Space' || e.code === 'ArrowDown') dropPiece(); 
+      if (e.code === 'ArrowUp' || e.code === 'KeyR') rotatePiece();
+    });
+
+    // Controlla se un corpo appartiene a un pezzo caduto
+    function isFromDroppedPiece(body) {
+      // Controlla direttamente
+      if (droppedBodies.includes(body)) return true;
+      // Controlla se è un parte di un pezzo composto
+      for (const droppedBody of droppedBodies) {
+        if (droppedBody.parts && droppedBody.parts.includes(body)) return true;
+      }
+      return false;
+    }
+
+    // Controllo collisione - Perdi vita quando il pezzo tocca il pavimento
     Events.on(engine, 'collisionStart', (event) => {
       event.pairs.forEach(pair => {
         if (pair.bodyA.label === 'floor' || pair.bodyB.label === 'floor') {
-          isGameOver = true;
-          document.getElementById('score').innerText = score + " (Game Over)";
+          const otherBody = pair.bodyA.label === 'floor' ? pair.bodyB : pair.bodyA;
+          // Controlla che sia un pezzo caduto (non il pezzo corrente che oscilla)
+          if (isFromDroppedPiece(otherBody)) {
+            loseLife();
+          }
         }
       });
     });
+
+    // Event listener per il restart
+    document.getElementById('restartBtn').addEventListener('click', restartGame);
 
     // Loop di animazione e oscillazione della morsa in alto
     let lastTime = 0;
