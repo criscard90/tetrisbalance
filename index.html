@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>Tetris Balance Tower</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; }
+    body {
+      background: #0f172a;
+      color: #fff;
+      font-family: system-ui, -apple-system, sans-serif;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+    }
+    #ui {
+      position: absolute;
+      top: 20px;
+      text-align: center;
+      z-index: 10;
+      pointer-events: none;
+    }
+    h1 { font-size: 1.5rem; text-transform: uppercase; letter-spacing: 2px; color: #38bdf8; }
+    .score { font-size: 2.5rem; font-weight: bold; margin-top: 5px; }
+    canvas { background: #1e293b; box-shadow: 0 10px 30px rgba(0,0,0,0.5); border-radius: 8px; }
+  </style>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/matter-js/0.19.0/matter.min.js"></script>
+</head>
+<body>
+
+  <div id="ui">
+    <h1>Tetris Balance</h1>
+    <div class="score" id="score">0</div>
+  </div>
+
+  <script>
+    const { Engine, Render, Runner, Bodies, Composite, Body, Events } = Matter;
+
+    // Configurazione Canvas
+    const width = Math.min(window.innerWidth, 450);
+    const height = Math.min(window.innerHeight - 20, 700);
+    const BLOCK_SIZE = 30;
+
+    // Engine & Runner
+    const engine = Engine.create();
+    const runner = Runner.create();
+
+    // Render Canvas personalizzato
+    const canvas = document.createElement('canvas');
+    canvas.width = width;
+    canvas.height = height;
+    document.body.appendChild(canvas);
+    const ctx = canvas.getContext('2d');
+
+    // Piattaforma di Bilanciamento (Base)
+    const platformWidth = 160;
+    const platform = Bodies.rectangle(width / 2, height - 100, platformWidth, 20, {
+      isStatic: true,
+      friction: 0.8,
+      render: { fillStyle: '#e2e8f0' }
+    });
+    
+    // Pavimento "Game Over" (sotto la piattaforma)
+    const floor = Bodies.rectangle(width / 2, height + 50, width * 2, 50, {
+      isStatic: true,
+      isSensor: true,
+      label: 'floor'
+    });
+
+    Composite.add(engine.world, [platform, floor]);
+
+    // Definizione Pezzi Tetris (Matrici 2D)
+    const SHAPES = {
+      I: { shape: [[1, 1, 1, 1]], color: '#06b6d4' },
+      J: { shape: [[1, 0, 0], [1, 1, 1]], color: '#3b82f6' },
+      L: { shape: [[0, 0, 1], [1, 1, 1]], color: '#f97316' },
+      O: { shape: [[1, 1], [1, 1]], color: '#eab308' },
+      S: { shape: [[0, 1, 1], [1, 1, 0]], color: '#22c55e' },
+      T: { shape: [[0, 1, 0], [1, 1, 1]], color: '#a855f7' },
+      Z: { shape: [[1, 1, 0], [0, 1, 1]], color: '#ef4444' }
+    };
+
+    let currentPiece = null;
+    let score = 0;
+    let isGameOver = false;
+    let spawnX = width / 2;
+    let moveDirection = 1;
+
+    // Generatore di Pezzi Tetris composti in Matter.js
+    function createTetrisPiece(x, y, type) {
+      const template = SHAPES[type];
+      const parts = [];
+      const rows = template.shape.length;
+      const cols = template.shape[0].length;
+
+      for (let r = 0; r < rows; r++) {
+        for (let c = 0; c < cols; c++) {
+          if (template.shape[r][c] === 1) {
+            const block = Bodies.rectangle(
+              x + (c * BLOCK_SIZE),
+              y + (r * BLOCK_SIZE),
+              BLOCK_SIZE - 2,
+              BLOCK_SIZE - 2,
+              { chamfer: { radius: 4 } }
+            );
+            parts.push(block);
+          }
+        }
+      }
+
+      const compoundBody = Body.create({
+        parts: parts,
+        friction: 0.6,
+        restitution: 0.1
+      });
+
+      compoundBody.color = template.color;
+      return compoundBody;
+    }
+
+    //Crea il pezzo sospeso in alto che oscilla
+    function spawnPiece() {
+      if (isGameOver) return;
+      const keys = Object.keys(SHAPES);
+      const randomType = keys[Math.floor(Math.random() * keys.length)];
+      
+      currentPiece = createTetrisPiece(width / 2, 80, randomType);
+      Body.setStatic(currentPiece, true);
+      Composite.add(engine.world, currentPiece);
+    }
+
+    // Sgancia il pezzo al Tap/Click
+    function dropPiece() {
+      if (!currentPiece || isGameOver) return;
+
+      Body.setStatic(currentPiece, false);
+      // Piccola spinta casuale sulla rotazione per aumentare l'instabilità fisica
+      Body.setAngularVelocity(currentPiece, (Math.random() - 0.5) * 0.05); 
+      
+      currentPiece = null;
+      score++;
+      document.getElementById('score').innerText = score;
+
+      // Genera il prossimo pezzo dopo un breve ritardo
+      setTimeout(spawnPiece, 1200);
+    }
+
+    // Gestione Eventi Tap / Spazio
+    window.addEventListener('pointerdown', dropPiece);
+    window.addEventListener('keydown', (e) => { if (e.code === 'Space') dropPiece(); });
+
+    // Controllo collisione Game Over (Pezzo caduto oltre il piatto)
+    Events.on(engine, 'collisionStart', (event) => {
+      event.pairs.forEach(pair => {
+        if (pair.bodyA.label === 'floor' || pair.bodyB.label === 'floor') {
+          isGameOver = true;
+          document.getElementById('score').innerText = score + " (Game Over)";
+        }
+      });
+    });
+
+    // Loop di animazione e oscillazione della morsa in alto
+    let lastTime = 0;
+    function update(time) {
+      // Oscillazione orizzontale del pezzo pronto a cadere
+      if (currentPiece && currentPiece.isStatic) {
+        spawnX += moveDirection * 2;
+        if (spawnX > width - 100 || spawnX < 100) moveDirection *= -1;
+        Body.setPosition(currentPiece, { x: spawnX, y: 80 });
+      }
+
+      // Render personalizzato su Canvas
+      ctx.clearRect(0, 0, width, height);
+
+      // Disegna tutti i corpi fisici
+      const bodies = Composite.allBodies(engine.world);
+      bodies.forEach(body => {
+        if (body.label === 'floor') return;
+
+        ctx.beginPath();
+        if (body.parts && body.parts.length > 1) {
+          // Disegna i sotto-blocchi dei pezzi composto
+          body.parts.forEach((part, i) => {
+            if (i === 0) return; // Salta il parent rigido
+            drawPath(part.vertices, body.color || '#94a3b8');
+          });
+        } else {
+          drawPath(body.vertices, body.render.fillStyle || '#94a3b8');
+        }
+      });
+
+      Engine.update(engine, 1000 / 60);
+      requestAnimationFrame(update);
+    }
+
+    function drawPath(vertices, color) {
+      ctx.fillStyle = color;
+      ctx.beginPath();
+      ctx.moveTo(vertices[0].x, vertices[0].y);
+      for (let j = 1; j < vertices.length; j++) {
+        ctx.lineTo(vertices[j].x, vertices[j].y);
+      }
+      ctx.closePath();
+      ctx.fill();
+      ctx.strokeStyle = '#0f172a';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+    }
+
+    // Avvio
+    spawnPiece();
+    requestAnimationFrame(update);
+  </script>
+</body>
+</html>
