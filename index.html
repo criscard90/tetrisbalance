@@ -78,7 +78,7 @@
       pointer-events: none;
     }
     canvas { 
-      background: #0d0d1a; 
+      background: #0a0a1a; 
       box-shadow: 0 0 30px rgba(255,0,255,0.3), 0 0 60px rgba(0,255,255,0.2), inset 0 0 50px rgba(0,0,0,0.5); 
       border: 2px solid #ff00ff;
       border-radius: 4px;
@@ -266,7 +266,7 @@
       frictionStatic: 2,
       restitution: 0,
       slop: 0.01,
-      render: { fillStyle: '#e2e8f0' }
+      render: { fillStyle: '#00ffff' }
     });
     
     // Pavimento "Game Over" (sotto la piattaforma)
@@ -300,6 +300,7 @@
     let droppedBodies = [];
     let stablePieces = []; // Pezzi stabili sulla piattaforma
     let fallenPieces = new Set();
+    let maxScore = 0; // Punteggio massimo raggiunto
 
     // Generatore di Pezzi Tetris composti in Matter.js
     function createTetrisPiece(x, y, type) {
@@ -458,6 +459,10 @@
       }
       
       score = currentScore;
+      // Aggiorna il punteggio massimo
+      if (score > maxScore) {
+        maxScore = score;
+      }
       document.getElementById('score').innerText = score;
     }
 
@@ -474,13 +479,19 @@
       
       if (lives <= 0) {
         isGameOver = true;
-        document.getElementById('finalScore').innerText = score;
+        document.getElementById('finalScore').innerText = maxScore;
         document.getElementById('gameOver').style.display = 'block';
       }
     }
 
     // Restart del gioco
     function restartGame() {
+      // Ferma qualsiasi pezzo in movimento
+      if (currentPiece) {
+        Composite.remove(engine.world, currentPiece);
+        currentPiece = null;
+      }
+      
       // Rimuovi tutti i pezzi caduti
       droppedBodies.forEach(piece => {
         Composite.remove(engine.world, piece.body);
@@ -489,17 +500,14 @@
       stablePieces = [];
       fallenPieces.clear();
       
-      // Rimuovi il pezzo corrente se presente
-      if (currentPiece) {
-        Composite.remove(engine.world, currentPiece);
-        currentPiece = null;
-      }
-      
       // Resetta le variabili
       score = 0;
+      maxScore = 0;
       lives = 3;
       isGameOver = false;
       currentRotation = 0;
+      spawnX = width / 2;
+      moveDirection = 1;
       
       // Aggiorna UI
       document.getElementById('score').innerText = score;
@@ -509,8 +517,10 @@
       // Cambia immagine di sfondo
       setRandomBgImage();
       
-      // Genera un nuovo pezzo
-      spawnPiece();
+      // Genera un nuovo pezzo con un piccolo ritardo per evitare freeze
+      setTimeout(() => {
+        spawnPiece();
+      }, 100);
     }
 
     // Gestione Eventi Tap / Spazio
@@ -623,8 +633,9 @@
       }
       ctx.closePath();
       ctx.fill();
-      ctx.strokeStyle = '#0f172a';
-      ctx.lineWidth = 2;
+      // Bordo luminoso per effetto neon
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 1;
       ctx.stroke();
     }
 
