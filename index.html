@@ -61,10 +61,11 @@
       width: 100%;
       height: 100%;
       object-fit: cover;
-      opacity: 0.12;
+      opacity: 0.25;
       z-index: 0;
-      filter: saturate(0.5) contrast(1.2) hue-rotate(280deg);
+      filter: brightness(0.6) contrast(1.1);
       pointer-events: none;
+      transition: opacity 0.5s ease;
     }
     #overlay {
       position: fixed;
@@ -72,7 +73,7 @@
       left: 0;
       width: 100%;
       height: 100%;
-      background: radial-gradient(ellipse at center, transparent 0%, rgba(10,10,26,0.7) 100%);
+      background: linear-gradient(180deg, rgba(10,10,26,0.3) 0%, rgba(10,10,26,0.5) 100%);
       z-index: 1;
       pointer-events: none;
     }
@@ -262,8 +263,9 @@
     const platform = Bodies.rectangle(width / 2, height - 100, platformWidth, 20, {
       isStatic: true,
       friction: 1,
-      frictionStatic: 1.5,
+      frictionStatic: 2,
       restitution: 0,
+      slop: 0.01,
       render: { fillStyle: '#e2e8f0' }
     });
     
@@ -323,10 +325,12 @@
 
       const compoundBody = Body.create({
         parts: parts,
-        friction: 0.9,
-        frictionStatic: 1.2,
-        restitution: 0.01,
-        density: 0.005
+        friction: 1,
+        frictionStatic: 2,
+        frictionAir: 0.02,
+        restitution: 0,
+        density: 0.008,
+        slop: 0.01
       });
 
       compoundBody.color = template.color;
@@ -392,10 +396,12 @@
 
       const compoundBody = Body.create({
         parts: parts,
-        friction: 0.9,
-        frictionStatic: 1.2,
-        restitution: 0.01,
-        density: 0.005
+        friction: 1,
+        frictionStatic: 2,
+        frictionAir: 0.02,
+        restitution: 0,
+        density: 0.008,
+        slop: 0.01
       });
 
       compoundBody.color = SHAPES[type].color;
@@ -419,8 +425,8 @@
       if (!currentPiece || isGameOver) return;
 
       Body.setStatic(currentPiece, false);
-      // Fisica migliorata: meno rotazione casuale, più attrito
-      Body.setAngularVelocity(currentPiece, (Math.random() - 0.5) * 0.01); 
+      // Fisica migliorata: rotazione minima per più stabilità
+      Body.setAngularVelocity(currentPiece, (Math.random() - 0.5) * 0.005); 
       
       // Aggiungi il pezzo alla lista dei pezzi caduti
       const pieceInfo = {
@@ -567,14 +573,20 @@
       // Applica damping ai pezzi per ridurre movimenti indebiti
       droppedBodies.forEach(piece => {
         const body = piece.body;
-        // Riduci gradualmente la velocità angolare
-        Body.setAngularVelocity(body, body.angularVelocity * 0.98);
+        // Riduci drasticamente la velocità angolare
+        Body.setAngularVelocity(body, body.angularVelocity * 0.95);
         // Se il pezzo è quasi fermo, fermalo completamente
-        if (Math.abs(body.angularVelocity) < 0.001) {
+        if (Math.abs(body.angularVelocity) < 0.005) {
           Body.setAngularVelocity(body, 0);
         }
-        if (Math.abs(body.velocity.x) < 0.01 && Math.abs(body.velocity.y) < 0.01) {
+        // Smorta anche la velocità lineare
+        Body.setVelocity(body, { 
+          x: body.velocity.x * 0.95, 
+          y: body.velocity.y * 0.95 
+        });
+        if (Math.abs(body.velocity.x) < 0.05 && Math.abs(body.velocity.y) < 0.05) {
           Body.setVelocity(body, { x: 0, y: 0 });
+          Body.setAngularVelocity(body, 0);
         }
       });
 
