@@ -2,7 +2,16 @@
 <html lang="it">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="theme-color" content="#0a0a1a">
+  <meta name="description" content="Tetris Balance Tower - gioco puzzle neon">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Tetris Balance">
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" type="image/png" sizes="192x192" href="img/icon-192.png">
+  <link rel="apple-touch-icon" href="img/icon-192.png">
   <title>Tetris Balance Tower</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; }
@@ -367,6 +376,58 @@
     canvas.shake {
       animation: screenshake 0.5s ease;
     }
+    #updatePopup {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      z-index: 300;
+      background: rgba(10,10,26,0.97);
+      border: 2px solid #00ffff;
+      border-radius: 20px;
+      box-shadow: 0 0 40px rgba(0,255,255,0.4);
+      padding: 25px 30px;
+      text-align: center;
+      font-family: 'Courier New', monospace;
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      gap: 12px;
+    }
+    #updatePopup h3 {
+      color: #00ffff;
+      font-size: 1.4rem;
+      text-shadow: 0 0 10px #00ffff;
+      margin: 0;
+    }
+    #updatePopup p {
+      color: #e2e8f0;
+      font-size: 0.9rem;
+      margin: 0;
+    }
+    #updateBtn {
+      background: transparent;
+      border: 2px solid #00ff88;
+      color: #00ff88;
+      border-radius: 25px;
+      padding: 10px 35px;
+      font-family: 'Courier New', monospace;
+      font-size: 1rem;
+      font-weight: bold;
+      cursor: pointer;
+      box-shadow: 0 0 15px rgba(0,255,136,0.4);
+      transition: all 0.2s ease;
+    }
+    #updateBtn:active { background: rgba(0,255,136,0.2); }
+    #updateDismiss {
+      background: transparent;
+      border: none;
+      color: #64748b;
+      font-family: 'Courier New', monospace;
+      font-size: 0.8rem;
+      cursor: pointer;
+      text-decoration: underline;
+    }
     #muteBtn {
       width: 32px;
       height: 32px;
@@ -441,6 +502,13 @@
 
   <div id="activeEffects"></div>
   <div id="powerupToast"></div>
+
+  <div id="updatePopup" style="display:none;">
+    <h3>🔄 AGGIORNAMENTO</h3>
+    <p>Una nuova versione del gioco è disponibile!</p>
+    <button id="updateBtn">AGGIORNA</button>
+    <button id="updateDismiss">PIÙ TARDI</button>
+  </div>
 
   <script>
     const { Engine, Render, Runner, Bodies, Composite, Body, Events, Sleeping } = Matter;
@@ -1147,6 +1215,52 @@
       if (e.code === 'Space' || e.code === 'ArrowDown') dropPiece(); 
       if (e.code === 'ArrowUp' || e.code === 'KeyR') rotatePiece();
     });
+
+    // ===== Service Worker: registra e cerca sempre nuovi aggiornamenti =====
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('sw.js').then(registration => {
+          // Controlla subito se esiste una nuova versione
+          registration.update();
+          // Ricontrolla periodicamente (ogni 5 minuti)
+          setInterval(() => registration.update(), 5 * 60 * 1000);
+          // Ricontrolla quando l'app torna in primo piano (mobile)
+          document.addEventListener('visibilitychange', () => {
+            if (!document.hidden) registration.update();
+          });
+          
+          // Quando c'è un nuovo Service Worker pronto, mostra il pop-up
+          let newWorker = null;
+          const showUpdatePopup = () => {
+            document.getElementById('updatePopup').style.display = 'flex';
+          };
+          if (registration.waiting) showUpdatePopup();
+          registration.addEventListener('updatefound', () => {
+            newWorker = registration.installing;
+            if (newWorker) newWorker.addEventListener('statechange', () => {
+              if (newWorker.state === 'installed' && navigator.serviceWorker.controller) showUpdatePopup();
+            });
+          });
+          // L'aggiornamento si applica solo se l'utente clicca "AGGIORNA"
+          navigator.serviceWorker.addEventListener('controllerchange', () => {
+            if (sessionStorage.getItem('swAcceptedUpdate') === '1') window.location.reload();
+          });
+        }).catch(err => console.warn('SW: registrazione fallita', err));
+
+        // Pulsante del pop-up di aggiornamento
+        document.addEventListener('DOMContentLoaded', () => {
+          document.getElementById('updateBtn').addEventListener('click', () => {
+            sessionStorage.setItem('swAcceptedUpdate', '1');
+            // Il nuovo SW ha già skipWaiting(), prende il controllo e ricarica
+            navigator.serviceWorker.controller && navigator.serviceWorker.controller.postMessage('SKIP_WAITING');
+            window.location.reload();
+          });
+          document.getElementById('updateDismiss').addEventListener('click', () => {
+            document.getElementById('updatePopup').style.display = 'none';
+          });
+        });
+      });
+    }
 
     // Controlla se un corpo appartiene a un pezzo caduto
     function isFromDroppedPiece(body) {
