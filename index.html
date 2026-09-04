@@ -27,7 +27,7 @@
       left: 50%;
       transform: translate(-50%, -50%);
       text-align: center;
-      z-index: 1;
+      z-index: 15;
       pointer-events: none;
       opacity: 0.35;
     }
@@ -61,9 +61,9 @@
       width: 100%;
       height: 100%;
       object-fit: cover;
-      opacity: 0.4;
+      opacity: 0.35;
       z-index: 0;
-      filter: brightness(0.7);
+      filter: brightness(0.9);
       pointer-events: none;
       transition: all 1.5s ease-in-out;
     }
@@ -98,27 +98,29 @@
       left: 0;
       width: 100%;
       height: 100%;
-      background: rgba(10,10,26,0.6);
+      background: rgba(10,10,26,0.2);
       z-index: 1;
       pointer-events: none;
     }
     canvas { 
-      background: #0a0a1a; 
+      background: transparent; 
       box-shadow: 0 0 30px rgba(255,0,255,0.3), 0 0 60px rgba(0,255,255,0.2), inset 0 0 50px rgba(0,0,0,0.5); 
       border: 2px solid #ff00ff;
       border-radius: 4px;
+      position: relative;
+      z-index: 2;
     }
     #controlsLeft {
       position: absolute;
       left: 15px;
       bottom: 120px;
-      z-index: 10;
+      z-index: 20;
     }
     #controlsRight {
       position: absolute;
       right: 15px;
       bottom: 120px;
-      z-index: 10;
+      z-index: 20;
     }
     .btn {
       width: 70px;
@@ -147,7 +149,7 @@
       left: 50%;
       transform: translate(-50%, -50%);
       text-align: center;
-      z-index: 20;
+      z-index: 200;
       display: none;
       background: rgba(10,10,26,0.95);
       padding: 40px 60px;
@@ -209,21 +211,92 @@
       z-index: 50;
       display: flex;
       align-items: center;
-      gap: 10px;
-      background: rgba(10,10,26,0.85);
+      gap: 8px;
+      background: rgba(10,10,26,0.9);
       border: 2px solid #ff00ff;
-      border-radius: 8px;
-      padding: 8px 12px;
+      border-radius: 25px;
+      padding: 6px 12px;
       box-shadow: 0 0 20px rgba(255,0,255,0.3);
+      transition: all 0.3s ease;
+      overflow: hidden;
+      max-width: 120px;
+      cursor: pointer;
+    }
+    #musicPlayer.expanded {
+      max-width: 280px;
+      border-radius: 12px;
+    }
+    #musicIcon {
+      width: 32px;
+      height: 32px;
+      min-width: 32px;
+      border-radius: 50%;
+      border: 2px solid #00ffff;
+      background: rgba(0,255,255,0.1);
+      color: #00ffff;
+      font-size: 1rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.2s;
+      text-shadow: 0 0 10px #00ffff;
+    }
+    #musicIcon.muted {
+      border-color: #ff0066;
+      color: #ff0066;
+      text-shadow: 0 0 10px #ff0066;
+    }
+    #musicInfo {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      opacity: 1;
+      transition: all 0.3s ease;
+    }
+    #musicPlayer.expanded #musicInfo {
+      opacity: 0;
+      width: 0;
+      overflow: hidden;
+    }
+    #genreDisplay {
+      color: #00ffff;
+      font-size: 0.65rem;
+      font-family: 'Courier New', monospace;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      text-shadow: 0 0 5px #00ffff;
+      white-space: nowrap;
+    }
+    #muteIndicator {
+      font-size: 0.5rem;
+      color: #ff0066;
+      text-shadow: 0 0 5px #ff0066;
+      height: 12px;
+    }
+    #muteIndicator.active::before {
+      content: '🔇';
+    }
+    #musicControls {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      opacity: 0;
+      width: 0;
+      overflow: hidden;
+      transition: all 0.3s ease;
+    }
+    #musicPlayer.expanded #musicControls {
+      opacity: 1;
+      width: auto;
     }
     #musicSelect {
       background: rgba(0,0,0,0.5);
       color: #00ffff;
       border: 1px solid #00ffff;
       border-radius: 4px;
-      padding: 5px 8px;
+      padding: 4px 6px;
       font-family: 'Courier New', monospace;
-      font-size: 0.85rem;
+      font-size: 0.75rem;
       cursor: pointer;
       outline: none;
     }
@@ -232,13 +305,14 @@
       color: #00ffff;
     }
     #muteBtn {
-      width: 36px;
-      height: 36px;
+      width: 32px;
+      height: 32px;
+      min-width: 32px;
       border-radius: 6px;
       border: 2px solid #00ffff;
       background: rgba(0,255,255,0.1);
       color: #00ffff;
-      font-size: 1.2rem;
+      font-size: 0.9rem;
       cursor: pointer;
       display: flex;
       align-items: center;
@@ -286,17 +360,24 @@
   </div>
 
   <div id="musicPlayer">
-    <select id="musicSelect">
-      <option value="ska">Ska</option>
-      <option value="dance">Dance</option>
-      <option value="ragtime">Ragtime</option>
-      <option value="jazz">Hip Hop Jazz</option>
-    </select>
-    <button id="muteBtn">🔊</button>
+    <div id="musicIcon">🎵</div>
+    <div id="musicInfo">
+      <span id="genreDisplay">Ska</span>
+      <span id="muteIndicator"></span>
+    </div>
+    <div id="musicControls">
+      <select id="musicSelect">
+        <option value="ska">Ska</option>
+        <option value="dance">Dance</option>
+        <option value="ragtime">Ragtime</option>
+        <option value="jazz">Hip Hop Jazz</option>
+      </select>
+      <button id="muteBtn">🔊</button>
+    </div>
   </div>
 
   <script>
-    const { Engine, Render, Runner, Bodies, Composite, Body, Events } = Matter;
+    const { Engine, Render, Runner, Bodies, Composite, Body, Events, Sleeping } = Matter;
 
     // Configurazione Canvas
     const width = Math.min(window.innerWidth, 450);
@@ -304,22 +385,36 @@
     const BLOCK_SIZE = 30;
 
     // Engine & Runner
-    const engine = Engine.create();
+    const engine = Engine.create({
+      enableSleeping: true,          // I corpi fermi "dormono" -> stack stabili
+      positionIterations: 12,        // Più iterazioni = stack più stabili
+      velocityIterations: 8,
+      constraintIterations: 4
+    });
     engine.gravity.y = 1.5;
+    engine.gravity.scale = 0.001;
     const runner = Runner.create();
 
-    // Gestione Musica
+    // Gestione Musica con Fade
     const musicFiles = {
       ska: 'music/ska.mp3',
       dance: 'music/dance.mp3',
       ragtime: 'music/ragtime.mp3',
       jazz: 'music/jazz.mp3'
     };
+    const genreNames = {
+      ska: 'Ska',
+      dance: 'Dance',
+      ragtime: 'Ragtime',
+      jazz: 'Hip Hop Jazz'
+    };
     let currentMusic = new Audio(musicFiles.ska);
     currentMusic.loop = true;
     currentMusic.volume = 0.4;
     let isMuted = false;
     let musicStarted = false;
+    let currentGenre = 'ska';
+    let isChangingGenre = false;
 
     function playMusic() {
       if (!musicStarted) {
@@ -331,24 +426,112 @@
       }
     }
 
-    function changeMusic(genre) {
-      const wasPlaying = !currentMusic.paused;
-      currentMusic.pause();
+    function fadeOut(audio, duration = 0.5) {
+      return new Promise(resolve => {
+        const startVolume = audio.volume;
+        const startTime = Date.now();
+        function fade() {
+          const elapsed = (Date.now() - startTime) / 1000;
+          const progress = Math.min(elapsed / duration, 1);
+          audio.volume = startVolume * (1 - progress);
+          if (progress < 1) {
+            requestAnimationFrame(fade);
+          } else {
+            audio.pause();
+            resolve();
+          }
+        }
+        fade();
+      });
+    }
+
+    function fadeIn(audio, targetVolume = 0.4, duration = 0.5) {
+      return new Promise(resolve => {
+        audio.volume = 0;
+        audio.play().then(() => {
+          const startTime = Date.now();
+          function fade() {
+            const elapsed = (Date.now() - startTime) / 1000;
+            const progress = Math.min(elapsed / duration, 1);
+            audio.volume = targetVolume * progress;
+            if (progress < 1) {
+              requestAnimationFrame(fade);
+            } else {
+              resolve();
+            }
+          }
+          fade();
+        });
+      });
+    }
+
+    async function changeMusic(genre) {
+      if (isChangingGenre || genre === currentGenre) return;
+      isChangingGenre = true;
+      
+      // Fade out della musica corrente
+      await fadeOut(currentMusic, 0.6);
+      
+      // Cambia genere
       currentMusic = new Audio(musicFiles[genre]);
       currentMusic.loop = true;
-      currentMusic.volume = isMuted ? 0 : 0.4;
-      if (wasPlaying && !isMuted) {
-        currentMusic.play();
+      currentGenre = genre;
+      
+      // Aggiorna display
+      document.getElementById('genreDisplay').textContent = genreNames[genre];
+      
+      // Fade in della nuova musica
+      if (!isMuted) {
+        await fadeIn(currentMusic, 0.4, 0.6);
       }
+      
       musicStarted = true;
+      isChangingGenre = false;
     }
 
     function toggleMute() {
       isMuted = !isMuted;
-      currentMusic.volume = isMuted ? 0 : 0.4;
+      if (isMuted) {
+        fadeOut(currentMusic, 0.3);
+      } else {
+        fadeIn(currentMusic, 0.4, 0.3);
+      }
       document.getElementById('muteBtn').textContent = isMuted ? '🔇' : '🔊';
       document.getElementById('muteBtn').classList.toggle('muted', isMuted);
+      document.getElementById('musicIcon').classList.toggle('muted', isMuted);
+      document.getElementById('muteIndicator').classList.toggle('active', isMuted);
     }
+
+    // Player expand/collapse
+    const musicPlayer = document.getElementById('musicPlayer');
+    let collapseTimeout;
+    
+    function expandPlayer() {
+      musicPlayer.classList.add('expanded');
+      clearTimeout(collapseTimeout);
+    }
+    
+    function collapsePlayer() {
+      collapseTimeout = setTimeout(() => {
+        musicPlayer.classList.remove('expanded');
+      }, 3000);
+    }
+
+    musicPlayer.addEventListener('mouseenter', expandPlayer);
+    musicPlayer.addEventListener('mouseleave', collapsePlayer);
+    musicPlayer.addEventListener('click', (e) => {
+      if (!musicPlayer.classList.contains('expanded')) {
+        e.stopPropagation();
+        expandPlayer();
+      }
+    });
+
+    // Chiudi quando si clicca altrove
+    document.addEventListener('click', (e) => {
+      if (!musicPlayer.contains(e.target)) {
+        musicPlayer.classList.remove('expanded');
+      }
+    });
 
     // Event listeners per la musica
     document.getElementById('musicSelect').addEventListener('change', (e) => {
@@ -356,7 +539,10 @@
       playMusic();
     });
 
-    document.getElementById('muteBtn').addEventListener('click', toggleMute);
+    document.getElementById('muteBtn').addEventListener('click', (e) => {
+      e.stopPropagation();
+      toggleMute();
+    });
 
     // Avvia la musica al primo click utente (per rispettare le policy dei browser)
     document.addEventListener('click', playMusic, { once: true });
@@ -417,10 +603,10 @@
     const platformWidth = 160;
     const platform = Bodies.rectangle(width / 2, height - 100, platformWidth, 20, {
       isStatic: true,
-      friction: 3,
-      frictionStatic: 8,
+      friction: 1,
+      frictionStatic: 1,
       restitution: 0,
-      slop: 0.02,
+      slop: 0.05,
       render: { fillStyle: '#00ffff' }
     });
     
@@ -481,12 +667,12 @@
 
       const compoundBody = Body.create({
         parts: parts,
-        friction: 2.5,
-        frictionStatic: 6,
-        frictionAir: 0.015,
+        friction: 0.9,
+        frictionStatic: 1,
+        frictionAir: 0.01,
         restitution: 0,
-        density: 0.01,
-        slop: 0.02
+        density: 0.005,
+        slop: 0.05
       });
 
       compoundBody.color = template.color;
@@ -552,12 +738,12 @@
 
       const compoundBody = Body.create({
         parts: parts,
-        friction: 2.5,
-        frictionStatic: 6,
-        frictionAir: 0.015,
+        friction: 0.9,
+        frictionStatic: 1,
+        frictionAir: 0.01,
         restitution: 0,
-        density: 0.01,
-        slop: 0.02
+        density: 0.005,
+        slop: 0.05
       });
 
       compoundBody.color = SHAPES[type].color;
@@ -573,6 +759,7 @@
       
       currentPiece = createTetrisPieceWithRotation(width / 2, 80, currentPieceType, currentRotation);
       Body.setStatic(currentPiece, true);
+      Sleeping.set(currentPiece, false);
       Composite.add(engine.world, currentPiece);
     }
 
@@ -581,6 +768,10 @@
       if (!currentPiece || isGameOver) return;
 
       Body.setStatic(currentPiece, false);
+      // Risveglia il pezzo: con enableSleeping i corpi statici possono risultare dormienti
+      Sleeping.set(currentPiece, false);
+      // Piccola spinta verso il basso per assicurare che la fisica parta subito
+      Body.setVelocity(currentPiece, { x: 0, y: 1 });
       // Fisica migliorata: rotazione minima per più stabilità
       Body.setAngularVelocity(currentPiece, (Math.random() - 0.5) * 0.005); 
       
@@ -594,7 +785,7 @@
       currentPiece = null;
       
       // Genera il prossimo pezzo dopo un breve ritardo
-      setTimeout(spawnPiece, 1200);
+      spawnTimeout = setTimeout(spawnPiece, 1200);
     }
 
     // Aggiorna il punteggio contando solo i pezzi stabili sulla piattaforma
@@ -640,7 +831,14 @@
     }
 
     // Restart del gioco
+    let spawnTimeout = null;
     function restartGame() {
+      // Cancella eventuali spawn pendenti
+      if (spawnTimeout) {
+        clearTimeout(spawnTimeout);
+        spawnTimeout = null;
+      }
+      
       // Ferma qualsiasi pezzo in movimento
       if (currentPiece) {
         Composite.remove(engine.world, currentPiece);
@@ -670,7 +868,8 @@
       document.getElementById('gameOver').style.display = 'none';
       
       // Genera un nuovo pezzo con un piccolo ritardo per evitare freeze
-      setTimeout(() => {
+      spawnTimeout = setTimeout(() => {
+        spawnTimeout = null;
         spawnPiece();
       }, 100);
     }
@@ -702,7 +901,6 @@
     }
 
     // Controllo collisione - Perdi vita quando il pezzo tocca il pavimento
-    // E risveglia i pezzi dormienti quando vengono colpiti
     Events.on(engine, 'collisionStart', (event) => {
       event.pairs.forEach(pair => {
         // Gestione collisione con il pavimento (game over)
@@ -715,18 +913,6 @@
             loseLife();
           }
         }
-        
-        // Risveglia i pezzi dormienti quando vengono colpiti
-        const bodyA = pair.bodyA;
-        const bodyB = pair.bodyB;
-        
-        droppedBodies.forEach(piece => {
-          if (piece.isSleeping && (piece.body === bodyA || piece.body === bodyB || 
-              (piece.body.parts && (piece.body.parts.includes(bodyA) || piece.body.parts.includes(bodyB))))) {
-            piece.isSleeping = false;
-            piece.restCount = 0;
-          }
-        });
       });
     });
 
@@ -736,69 +922,35 @@
     // Loop di animazione e oscillazione della morsa in alto
     let lastTime = 0;
     function update(time) {
-      // Oscillazione orizzontale del pezzo pronto a cadere
-      if (currentPiece && currentPiece.isStatic) {
-        spawnX += moveDirection * 2;
-        if (spawnX > width - 100 || spawnX < 100) moveDirection *= -1;
-        Body.setPosition(currentPiece, { x: spawnX, y: 80 });
-      }
+      try {
+        // Oscillazione orizzontale del pezzo pronto a cadere
+        if (currentPiece && currentPiece.isStatic) {
+          spawnX += moveDirection * 2;
+          if (spawnX > width - 100 || spawnX < 100) moveDirection *= -1;
+          Body.setPosition(currentPiece, { x: spawnX, y: 80 });
+        }
 
       // Aggiorna il punteggio periodicamente
       updateScore();
 
-      // Applica damping ai pezzi per ridurre movimenti indebiti
+      // Sicurezza: limita velocità eccessive per evitare "esplosioni" nello stack
       droppedBodies.forEach(piece => {
         const body = piece.body;
-        
-        // Damping più aggressivo della velocità angolare
-        Body.setAngularVelocity(body, body.angularVelocity * 0.85);
-        
-        // Damping della velocità lineare
-        Body.setVelocity(body, { 
-          x: body.velocity.x * 0.92, 
-          y: body.velocity.y * 0.96 // Meno damping sull'Y per permettere la gravità
-        });
-        
-        // Se il pezzo è quasi fermo, fermarlo completamente (SLEEP)
         const speed = Math.sqrt(body.velocity.x ** 2 + body.velocity.y ** 2);
-        const angularSpeed = Math.abs(body.angularVelocity);
         
-        if (speed < 0.3 && angularSpeed < 0.02) {
-          // Incrementa il contatore di riposo
-          piece.restCount = (piece.restCount || 0) + 1;
-          
-          // Dopo 30 frame (~0.5s) di quasi immobilità, ferma completamente
-          if (piece.restCount > 30) {
-            Body.setVelocity(body, { x: 0, y: 0 });
-            Body.setAngularVelocity(body, 0);
-            piece.isSleeping = true;
-          }
-        } else {
-          piece.restCount = 0;
-          piece.isSleeping = false;
-        }
-        
-        // Limita la velocità massima per evitare schizzi
-        const maxSpeed = 8;
-        if (speed > maxSpeed) {
-          const scale = maxSpeed / speed;
+        // Limita solo velocità anomale (il damping lo fa frictionAir + sleeping nativo)
+        if (speed > 15) {
+          const scale = 15 / speed;
           Body.setVelocity(body, { 
             x: body.velocity.x * scale, 
             y: body.velocity.y * scale 
           });
         }
-        
-        // Limita la velocità angolare massima
-        const maxAngularSpeed = 0.15;
-        if (Math.abs(body.angularVelocity) > maxAngularSpeed) {
-          Body.setAngularVelocity(body, Math.sign(body.angularVelocity) * maxAngularSpeed);
-        }
       });
 
       // Render personalizzato su Canvas
-      // Riempie lo sfondo con un colore solido (no trasparenza)
-      ctx.fillStyle = '#0a0a1a';
-      ctx.fillRect(0, 0, width, height);
+      // Pulisce il canvas (trasparente per mostrare lo sfondo)
+      ctx.clearRect(0, 0, width, height);
 
       // Disegna tutti i corpi fisici
       const bodies = Composite.allBodies(engine.world);
@@ -818,6 +970,9 @@
       });
 
       Engine.update(engine, 1000 / 60);
+      } catch (err) {
+        console.error('Errore nel loop di gioco:', err);
+      }
       requestAnimationFrame(update);
     }
 
