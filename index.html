@@ -304,6 +304,69 @@
       background: #0a0a1a;
       color: #00ffff;
     }
+    /* ===== Power-up / Downgrade System ===== */
+    #activeEffects {
+      position: fixed;
+      top: 75px;
+      right: 15px;
+      z-index: 40;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      align-items: flex-end;
+      pointer-events: none;
+    }
+    .effect-chip {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(10,10,26,0.9);
+      border: 1px solid;
+      border-radius: 15px;
+      padding: 3px 10px;
+      font-size: 0.7rem;
+      font-family: 'Courier New', monospace;
+      color: #e2e8f0;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .effect-chip .count {
+      color: #00ffff;
+      font-weight: bold;
+      text-shadow: 0 0 5px #00ffff;
+    }
+    #powerupToast {
+      position: fixed;
+      top: 70px;
+      left: 50%;
+      transform: translateX(-50%) translateY(-10px);
+      z-index: 60;
+      background: rgba(10,10,26,0.95);
+      border: 2px solid #00ffff;
+      border-radius: 20px;
+      padding: 8px 20px;
+      font-size: 1rem;
+      font-family: 'Courier New', monospace;
+      color: #e2e8f0;
+      opacity: 0;
+      transition: all 0.3s ease;
+      pointer-events: none;
+      white-space: nowrap;
+    }
+    #powerupToast.show {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+    @keyframes screenshake {
+      0%, 100% { transform: translate(0, 0); }
+      20% { transform: translate(-6px, 3px); }
+      40% { transform: translate(5px, -4px); }
+      60% { transform: translate(-4px, -3px); }
+      80% { transform: translate(4px, 3px); }
+    }
+    canvas.shake {
+      animation: screenshake 0.5s ease;
+    }
     #muteBtn {
       width: 32px;
       height: 32px;
@@ -375,6 +438,9 @@
       <button id="muteBtn">🔊</button>
     </div>
   </div>
+
+  <div id="activeEffects"></div>
+  <div id="powerupToast"></div>
 
   <script>
     const { Engine, Render, Runner, Bodies, Composite, Body, Events, Sleeping } = Matter;
@@ -601,7 +667,7 @@
 
     // Piattaforma di Bilanciamento (Base)
     const platformWidth = 160;
-    const platform = Bodies.rectangle(width / 2, height - 100, platformWidth, 20, {
+    let platform = Bodies.rectangle(width / 2, height - 100, platformWidth, 20, {
       isStatic: true,
       friction: 1,
       frictionStatic: 1,
@@ -643,12 +709,48 @@
     let fallenPieces = new Set();
     let maxScore = 0; // Punteggio massimo raggiunto
 
+    // ===== Sistema Power-up / Downgrade =====
+    const POWERUPS = {
+      // UPGRADE (neon ciano/verde)
+      magnet:       { icon: '🧲', name: 'Magnete',      type: 'upgrade',   color: '#00ffff', duration: 1 },
+      heavyBase:    { icon: '🏋️', name: 'Base Pesante', type: 'upgrade',   color: '#00ff88', duration: 3 },
+      feather:      { icon: '🪶', name: 'Piuma',        type: 'upgrade',   color: '#88ffff', duration: 1 },
+      freeze:       { icon: '❄️', name: 'Gelo',         type: 'upgrade',   color: '#00ccff', duration: 3 },
+      extraLife:    { icon: '❤️', name: 'Vita Extra',   type: 'upgrade',   color: '#ff4488', duration: 0 },
+      doubleScore:  { icon: '🎯', name: 'Punteggio x2', type: 'upgrade',   color: '#ffee00', duration: 3 },
+      calmWind:     { icon: '🧘', name: 'Vento Calmo',  type: 'upgrade',   color: '#aaffcc', duration: 2 },
+      // DOWNGRADE (neon rosso/magenta)
+      gust:         { icon: '🌪️', name: 'Raffica',      type: 'downgrade', color: '#ff0066', duration: 2 },
+      butter:       { icon: '🧈', name: 'Burro',        type: 'downgrade', color: '#ffaa00', duration: 3 },
+      earthquake:   { icon: '🍾', name: 'Terremoto',    type: 'downgrade', color: '#ff3300', duration: 0 },
+      mysteryPiece: { icon: '🎲', name: 'Mistero',      type: 'downgrade', color: '#bb00ff', duration: 1 },
+      fog:          { icon: '🙈', name: 'Nebbia',       type: 'downgrade', color: '#9999aa', duration: 2 },
+      bounce:       { icon: '🪃', name: 'Rimbalzo',     type: 'downgrade', color: '#ff6600', duration: 3 },
+      hyper:        { icon: '⚡', name: 'Ipervelocità', type: 'downgrade', color: '#ffdd00', duration: 2 }
+    };
+
+    let activePowerups = [];      // Sfere fluttuanti sullo schermo
+    let activeEffects = [];       // Effetti attivi [{ key, remaining }]
+    let lastPowerupType = null;   // Per evitare due downgrade di fila
+    let lastPowerupSpawnAt = 0;   // Cooldown di spawn
+    let gustDir = 1;              // Direzione del vento (Raffica)
+    let toastTimeout = null;
+
     // Generatore di Pezzi Tetris composti in Matter.js
     function createTetrisPiece(x, y, type) {
       const template = SHAPES[type];
       const parts = [];
       const rows = template.shape.length;
       const cols = template.shape[0].length;
+
+      const pieceOpts = {
+        friction: 0.9,
+        frictionStatic: 1,
+        frictionAir: 0.01,
+        restitution: 0,
+        density: 0.005,
+        slop: 0.05
+      };
 
       for (let r = 0; r < rows; r++) {
         for (let c = 0; c < cols; c++) {
@@ -658,7 +760,7 @@
               y + (r * BLOCK_SIZE),
               BLOCK_SIZE - 2,
               BLOCK_SIZE - 2,
-              { chamfer: { radius: 4 } }
+              { ...pieceOpts, chamfer: { radius: 4 } }
             );
             parts.push(block);
           }
@@ -667,12 +769,7 @@
 
       const compoundBody = Body.create({
         parts: parts,
-        friction: 0.9,
-        frictionStatic: 1,
-        frictionAir: 0.01,
-        restitution: 0,
-        density: 0.005,
-        slop: 0.05
+        ...pieceOpts
       });
 
       compoundBody.color = template.color;
@@ -721,6 +818,15 @@
       const rows = shape.length;
       const cols = shape[0].length;
 
+      const pieceOpts = {
+        friction: 0.9,
+        frictionStatic: 1,
+        frictionAir: 0.01,
+        restitution: hasEffect('bounce') ? 0.45 : 0,
+        density: 0.005,
+        slop: 0.05
+      };
+
       for (let r = 0; r < rows; r++) {
         for (let c = 0; c < cols; c++) {
           if (shape[r][c] === 1) {
@@ -729,7 +835,7 @@
               y + (r * BLOCK_SIZE),
               BLOCK_SIZE - 2,
               BLOCK_SIZE - 2,
-              { render: { fillStyle: SHAPES[type].color } }
+              { ...pieceOpts, render: { fillStyle: SHAPES[type].color } }
             );
             parts.push(block);
           }
@@ -738,12 +844,7 @@
 
       const compoundBody = Body.create({
         parts: parts,
-        friction: 0.9,
-        frictionStatic: 1,
-        frictionAir: 0.01,
-        restitution: 0,
-        density: 0.005,
-        slop: 0.05
+        ...pieceOpts
       });
 
       compoundBody.color = SHAPES[type].color;
@@ -757,10 +858,27 @@
       currentPieceType = keys[Math.floor(Math.random() * keys.length)];
       currentRotation = 0;
       
+      // Pezzo Misterioso: variante casuale (piccolo / grande / ruotato)
+      let mysteryVariant = null;
+      if (hasEffect('mysteryPiece')) {
+        activeEffects = activeEffects.filter(e => e.key !== 'mysteryPiece');
+        renderActiveEffects();
+        mysteryVariant = ['small', 'big', 'spin'][Math.floor(Math.random() * 3)];
+      }
+      if (mysteryVariant === 'spin') {
+        currentRotation = Math.floor(Math.random() * 4);
+      }
+      
       currentPiece = createTetrisPieceWithRotation(width / 2, 80, currentPieceType, currentRotation);
+      if (mysteryVariant === 'small') Body.scale(currentPiece, 0.6, 0.6);
+      if (mysteryVariant === 'big') Body.scale(currentPiece, 1.35, 1.35);
       Body.setStatic(currentPiece, true);
       Sleeping.set(currentPiece, false);
       Composite.add(engine.world, currentPiece);
+      
+      // Possibilità casuale di far comparire una sfera power-up
+      // (mentre il nuovo pezzo oscilla, così il giocatore può mirarci)
+      maybeSpawnPowerup();
     }
 
     // Sgancia il pezzo al Tap/Click
@@ -784,8 +902,146 @@
       droppedBodies.push(pieceInfo);
       currentPiece = null;
       
+      // Gli effetti "a pezzi" scadono a ogni sgancio
+      tickEffectsPerDrop();
+      
       // Genera il prossimo pezzo dopo un breve ritardo
       spawnTimeout = setTimeout(spawnPiece, 1200);
+    }
+
+    // ===== Funzioni Power-up / Downgrade =====
+    function hasEffect(key) {
+      return activeEffects.some(e => e.key === key);
+    }
+
+    function setPieceFriction(body, f, fs) {
+      body.friction = f;
+      body.frictionStatic = fs;
+      if (body.parts && body.parts.length > 1) {
+        body.parts.forEach(part => {
+          if (part !== body) { part.friction = f; part.frictionStatic = fs; }
+        });
+      }
+    }
+
+    function rebuildPlatform(w) {
+      const y = platform.position.y;
+      Composite.remove(engine.world, platform);
+      const slippery = hasEffect('butter');
+      platform = Bodies.rectangle(width / 2, y, w, 20, {
+        isStatic: true,
+        friction: slippery ? 0.02 : 1,
+        frictionStatic: slippery ? 0.02 : 1,
+        restitution: 0,
+        slop: 0.05,
+        render: { fillStyle: '#00ffff' }
+      });
+      Composite.add(engine.world, platform);
+    }
+
+    function showToast(def) {
+      const toastEl = document.getElementById('powerupToast');
+      toastEl.innerHTML = `${def.icon} <span style="color:${def.color}">${def.name}</span>`;
+      toastEl.style.borderColor = def.color;
+      toastEl.style.boxShadow = `0 0 20px ${def.color}55`;
+      toastEl.classList.add('show');
+      clearTimeout(toastTimeout);
+      toastTimeout = setTimeout(() => toastEl.classList.remove('show'), 1600);
+    }
+
+    function renderActiveEffects() {
+      const el = document.getElementById('activeEffects');
+      el.innerHTML = activeEffects.map(e => {
+        const def = POWERUPS[e.key];
+        return `<div class="effect-chip" style="border-color:${def.color};box-shadow:0 0 10px ${def.color}44"><span>${def.icon}</span><span>${def.name}</span><span class="count">×${e.remaining}</span></div>`;
+      }).join('');
+    }
+
+    function doEarthquake() {
+      droppedBodies.forEach(piece => {
+        const body = piece.body;
+        Sleeping.set(body, false);
+        Body.setVelocity(body, { x: (Math.random() - 0.5) * 9, y: -Math.random() * 5 });
+        Body.setAngularVelocity(body, (Math.random() - 0.5) * 0.3);
+      });
+      canvas.classList.add('shake');
+      setTimeout(() => canvas.classList.remove('shake'), 500);
+    }
+
+    function activateEffect(key) {
+      const def = POWERUPS[key];
+      showToast(def);
+
+      if (key === 'extraLife') {
+        lives = Math.min(5, lives + 1);
+        updateLivesDisplay();
+        return;
+      }
+      if (key === 'earthquake') { doEarthquake(); return; }
+      if (key === 'heavyBase') rebuildPlatform(platformWidth + 40);
+      if (key === 'butter') { platform.friction = 0.02; platform.frictionStatic = 0.02; }
+      if (key === 'freeze') droppedBodies.forEach(p => setPieceFriction(p.body, 2, 2));
+      if (key === 'gust') gustDir = Math.random() < 0.5 ? -1 : 1;
+
+      const existing = activeEffects.find(e => e.key === key);
+      if (existing) existing.remaining = def.duration;
+      else activeEffects.push({ key, remaining: def.duration });
+      renderActiveEffects();
+    }
+
+    function deactivateEffect(key) {
+      if (key === 'heavyBase') rebuildPlatform(platformWidth);
+      if (key === 'butter') { platform.friction = 1; platform.frictionStatic = 1; }
+      if (key === 'freeze') droppedBodies.forEach(p => setPieceFriction(p.body, 0.9, 1));
+    }
+
+    function tickEffectsPerDrop() {
+      activeEffects.forEach(eff => eff.remaining--);
+      activeEffects = activeEffects.filter(eff => {
+        if (eff.remaining <= 0) { deactivateEffect(eff.key); return false; }
+        return true;
+      });
+      renderActiveEffects();
+    }
+
+    function pickPowerupKey() {
+      const keys = Object.keys(POWERUPS);
+      let pool = keys;
+      // Mai due downgrade di fila
+      if (lastPowerupType === 'downgrade') pool = keys.filter(k => POWERUPS[k].type === 'upgrade');
+      const upgrades = pool.filter(k => POWERUPS[k].type === 'upgrade');
+      const downgrades = pool.filter(k => POWERUPS[k].type === 'downgrade');
+      let chosen;
+      if (Math.random() < 0.6 && upgrades.length) {
+        chosen = upgrades[Math.floor(Math.random() * upgrades.length)];
+      } else if (downgrades.length) {
+        chosen = downgrades[Math.floor(Math.random() * downgrades.length)];
+      } else {
+        chosen = upgrades[Math.floor(Math.random() * upgrades.length)];
+      }
+      lastPowerupType = POWERUPS[chosen].type;
+      return chosen;
+    }
+
+    function maybeSpawnPowerup() {
+      if (isGameOver || activePowerups.length >= 2) return;
+      if (Date.now() - lastPowerupSpawnAt < 4000) return;
+      if (Math.random() > 0.3) return;
+
+      const key = pickPowerupKey();
+      const def = POWERUPS[key];
+      const minTop = 150;
+      const maxTop = Math.max(minTop + 50, height - 210);
+      activePowerups.push({
+        key, def,
+        x: 70 + Math.random() * (width - 140),
+        baseY: minTop + Math.random() * (maxTop - minTop),
+        phase: Math.random() * Math.PI * 2,
+        born: Date.now(),
+        expireAt: Date.now() + 8000,
+        posX: 0, posY: 0
+      });
+      lastPowerupSpawnAt = Date.now();
     }
 
     // Aggiorna il punteggio contando solo i pezzi stabili sulla piattaforma
@@ -804,6 +1060,8 @@
         }
       }
       
+      // Punteggio x2
+      if (hasEffect('doubleScore')) currentScore *= 2;
       score = currentScore;
       // Aggiorna il punteggio massimo
       if (score > maxScore) {
@@ -852,6 +1110,14 @@
       droppedBodies = [];
       stablePieces = [];
       fallenPieces.clear();
+      
+      // Pulizia power-up / downgrade
+      activePowerups = [];
+      activeEffects.forEach(eff => deactivateEffect(eff.key));
+      activeEffects = [];
+      lastPowerupType = null;
+      lastPowerupSpawnAt = 0;
+      renderActiveEffects();
       
       // Resetta le variabili
       score = 0;
@@ -925,7 +1191,8 @@
       try {
         // Oscillazione orizzontale del pezzo pronto a cadere
         if (currentPiece && currentPiece.isStatic) {
-          spawnX += moveDirection * 2;
+          const oscSpeed = hasEffect('calmWind') ? 0.7 : 2;
+          spawnX += moveDirection * oscSpeed;
           if (spawnX > width - 100 || spawnX < 100) moveDirection *= -1;
           Body.setPosition(currentPiece, { x: spawnX, y: 80 });
         }
@@ -948,6 +1215,59 @@
         }
       });
 
+      // ===== Applicazione effetti ai pezzi in volo =====
+      const gForce = engine.gravity.y * engine.gravity.scale;
+      const tSec = Date.now() / 1000;
+      droppedBodies.forEach(piece => {
+        const body = piece.body;
+        if (body.isSleeping) return;
+        const falling = body.velocity.y > 0.2 && body.position.y < height - 130;
+        
+        if (falling && hasEffect('feather')) {
+          // Piuma: gravità ridotta al ~30%
+          Body.applyForce(body, body.position, { x: 0, y: -body.mass * gForce * 0.72 });
+        }
+        if (falling && hasEffect('hyper')) {
+          // Ipervelocità: gravità raddoppiata
+          Body.applyForce(body, body.position, { x: 0, y: body.mass * gForce * 1.1 });
+        }
+        if (falling && hasEffect('magnet')) {
+          // Magnete: attrazione verso il centro della pedana
+          const dx = width / 2 - body.position.x;
+          const nudge = Math.max(-0.35, Math.min(0.35, dx * 0.004));
+          Body.setVelocity(body, { x: body.velocity.x * 0.98 + nudge, y: body.velocity.y });
+        }
+        if (falling && hasEffect('gust')) {
+          // Raffica: vento laterale pulsante
+          const wind = gustDir * (0.06 + 0.05 * Math.sin(tSec * 3));
+          Body.setVelocity(body, { x: body.velocity.x + wind, y: body.velocity.y });
+        }
+      });
+
+      // ===== Aggiorna sfere power-up: movimento, raccolta, scadenza =====
+      const nowMs = Date.now();
+      activePowerups = activePowerups.filter(orb => {
+        if (nowMs > orb.expireAt) return false;
+        const tt = (nowMs - orb.born) / 1000;
+        orb.posX = Math.max(45, Math.min(width - 45, orb.x + Math.sin(tt * 1.4 + orb.phase) * 22));
+        orb.posY = orb.baseY + Math.sin(tt * 2.2 + orb.phase) * 10;
+        // Raccolta: il pezzo in caduta attraversa la sfera
+        for (const piece of droppedBodies) {
+          const body = piece.body;
+          if (body.position.y > orb.posY + 70) continue;
+          const parts = body.parts && body.parts.length > 1 ? body.parts.slice(1) : [body];
+          for (const part of parts) {
+            const dx = part.position.x - orb.posX;
+            const dy = part.position.y - orb.posY;
+            if (dx * dx + dy * dy < 1764) { // raggio di raccolta 42px
+              activateEffect(orb.key);
+              return false;
+            }
+          }
+        }
+        return true;
+      });
+
       // Render personalizzato su Canvas
       // Pulisce il canvas (trasparente per mostrare lo sfondo)
       ctx.clearRect(0, 0, width, height);
@@ -967,6 +1287,52 @@
         } else {
           drawPath(body.vertices, body.render.fillStyle || '#94a3b8');
         }
+      });
+
+      // Nebbia (downgrade): vela l'area della pedana
+      if (hasEffect('fog')) {
+        const fogGrad = ctx.createLinearGradient(0, height - 260, 0, height - 40);
+        fogGrad.addColorStop(0, 'rgba(200,200,230,0)');
+        fogGrad.addColorStop(1, 'rgba(200,200,230,0.55)');
+        ctx.fillStyle = fogGrad;
+        ctx.fillRect(0, height - 260, width, 220);
+      }
+
+      // Disegna le sfere power-up / downgrade
+      activePowerups.forEach(orb => {
+        const def = orb.def;
+        const remain = orb.expireAt - Date.now();
+        const alpha = remain < 1000 ? Math.max(0, remain / 1000) : 1;
+        ctx.save();
+        ctx.globalAlpha = alpha;
+        const r = 22 + Math.sin(Date.now() / 200 + orb.phase) * 1.5;
+        // Alone esterno
+        ctx.beginPath();
+        ctx.arc(orb.posX, orb.posY, r + 6, 0, Math.PI * 2);
+        ctx.fillStyle = def.color + '14';
+        ctx.fill();
+        // Sfera trasparente con riflesso
+        const grad = ctx.createRadialGradient(orb.posX - 6, orb.posY - 8, 3, orb.posX, orb.posY, r);
+        grad.addColorStop(0, 'rgba(255,255,255,0.35)');
+        grad.addColorStop(0.4, def.color + '33');
+        grad.addColorStop(1, def.color + '11');
+        ctx.beginPath();
+        ctx.arc(orb.posX, orb.posY, r, 0, Math.PI * 2);
+        ctx.fillStyle = grad;
+        ctx.fill();
+        // Bordo neon
+        ctx.lineWidth = 2;
+        ctx.strokeStyle = def.color;
+        ctx.shadowColor = def.color;
+        ctx.shadowBlur = 12;
+        ctx.stroke();
+        ctx.shadowBlur = 0;
+        // Icona
+        ctx.font = '20px "Segoe UI Emoji", sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(def.icon, orb.posX, orb.posY + 1);
+        ctx.restore();
       });
 
       Engine.update(engine, 1000 / 60);
