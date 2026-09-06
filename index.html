@@ -528,7 +528,10 @@
     // a un'accelerazione di ~1500 px/s² in coordinate schermo (Y verso il basso).
     const world = new World({
       gravity: Vec2(0, 1500),
-      allowSleep: true
+      allowSleep: true,
+      // Piu' iterazioni = risoluzione piu' rapida delle sovrapposizioni (default: 8 e 3)
+      velocityIterations: 8,
+      positionIterations: 6
     });
 
     // Gestione Musica con Fade
@@ -778,6 +781,7 @@
     let lives = 3;
     let isGameOver = false;
     let spawnX = width / 2;
+    let hangingY = 80;   // quota y del pezzo appeso (si alza se la torre cresce verso l'alto)
     let moveDirection = 1;
     let droppedBodies = [];
     let stablePieces = []; // Pezzi stabili sulla piattaforma
@@ -821,6 +825,9 @@
         type: 'dynamic',
         position: Vec2(x, y),
         allowSleep: true,
+        // bullet = collisione continua (TOI): evita che i pezzi veloci
+        // attraversino/penetrino gli altri corpi tra uno step e l'altro
+        bullet: true,
         // damping 0.6 ≈ frictionAir 0.01 di Matter.js (v *= 0.99 per step a 60fps)
         angularDamping: 0.6,
         linearDamping: 0.6
@@ -872,7 +879,9 @@
       currentRotation = (currentRotation + 1) % 4;
       
       // Ricrea il pezzo con la nuova rotazione
-      currentPiece = createTetrisPieceWithRotation(width / 2, 80, currentPieceType, currentRotation);
+      currentPiece = createTetrisPieceWithRotation(width / 2, hangingY, currentPieceType, currentRotation);
+      // Ricalcola la quota: la forma ruotata puo' avere estensioni diverse
+      hangingY = computeHangingY(currentPiece, hangingY);
       currentPiece.setStatic();
     }
 
@@ -890,6 +899,9 @@
         type: 'dynamic',
         position: Vec2(x, y),
         allowSleep: true,
+        // bullet = collisione continua (TOI): evita che i pezzi veloci
+        // attraversino/penetrino gli altri corpi tra uno step e l'altro
+        bullet: true,
         // damping 0.6 ≈ frictionAir 0.01 di Matter.js (v *= 0.99 per step a 60fps)
         angularDamping: 0.6,
         linearDamping: 0.6
@@ -936,6 +948,8 @@
       // Pezzo Misterioso: variante casuale di scala (simulata riducendo le dimensioni dei fixture)
       if (mysteryVariant === 'small') scalePiece(currentPiece, 0.6);
       if (mysteryVariant === 'big') scalePiece(currentPiece, 1.35);
+      // Evita sovrapposizioni: se la torre raggiunge la zona di spawn, alza il pezzo appeso
+      hangingY = computeHangingY(currentPiece, 80);
       currentPiece.setStatic();
       currentPiece.setAwake(true);
       
@@ -968,6 +982,47 @@
         }
       });
       body.resetMassData();
+    }
+
+    // Estensione verticale massima del pezzo rispetto all'origine (angolo = 0 alla creazione)
+    function getPieceBottomExtent(body) {
+      let maxY = -Infinity;
+      for (let f = body.getFixtureList(); f; f = f.getNext()) {
+        for (const v of f.getShape().m_vertices) {
+          if (v.y > maxY) maxY = v.y;
+        }
+      }
+      return maxY;
+    }
+
+    // Quota y del punto piu' alto della torre (min y tra tutti i vertici in coordinate mondo)
+    function getStackTopY() {
+      let top = Infinity;
+      for (const piece of droppedBodies) {
+        const xf = piece.body.getTransform();
+        for (let f = piece.body.getFixtureList(); f; f = f.getNext()) {
+          for (const v of f.getShape().m_vertices) {
+            const wy = Transform.mulVec2(xf, v).y;
+            if (wy < top) top = wy;
+          }
+        }
+      }
+      return top;
+    }
+
+    // Se la torre invade la zona di spawn, alza il pezzo appeso sopra la torre
+    // per evitare che il pezzo statico si sovrapponga e spinga i pezzi della pila.
+    // Margine 20px: copre anche i pezzi che stanno ancora rimbalzando/risalendo.
+    function computeHangingY(piece, baseY) {
+      const stackTop = getStackTopY();
+      if (stackTop === Infinity) return baseY;
+      const bottomExtent = getPieceBottomExtent(piece);
+      if (stackTop < baseY + bottomExtent + 20) {
+        const y = Math.max(6, stackTop - bottomExtent - 20);
+        piece.setPosition(Vec2(width / 2, y));
+        return y;
+      }
+      return baseY;
     }
 
     // Sgancia il pezzo al Tap/Click
@@ -1214,6 +1269,7 @@
       isGameOver = false;
       currentRotation = 0;
       spawnX = width / 2;
+      hangingY = 80;
       moveDirection = 1;
       
       // Aggiorna UI
@@ -1329,7 +1385,7 @@
           const oscSpeed = hasEffect('calmWind') ? 0.7 : 2;
           spawnX += moveDirection * oscSpeed;
           if (spawnX > width - 100 || spawnX < 100) moveDirection *= -1;
-          currentPiece.setPosition(Vec2(spawnX, 80));
+          currentPiece.setPosition(Vec2(spawnX, hangingY));
           currentPiece.setAwake(true);
         }
 
