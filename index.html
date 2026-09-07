@@ -47,8 +47,8 @@
       font-size: 3rem; 
       text-transform: uppercase; 
       letter-spacing: 8px; 
-      color: #ff00ff;
-      text-shadow: 0 0 20px #ff00ff, 0 0 40px #ff00ff;
+      color: #ffb300;
+      text-shadow: 0 0 20px #ffb300, 0 0 40px #ffb300;
     }
     .score { 
       font-size: 4rem; 
@@ -59,8 +59,8 @@
     }
     .lives { 
       font-size: 1.5rem; 
-      color: #ff0066;
-      text-shadow: 0 0 10px #ff0066, 0 0 20px #ff0066;
+      color: #ff4444;
+      text-shadow: 0 0 10px #ff4444, 0 0 20px #ff4444;
       margin-top: 15px;
     }
     #bgImage {
@@ -113,8 +113,8 @@
     }
     canvas { 
       background: transparent; 
-      box-shadow: 0 0 30px rgba(255,0,255,0.3), 0 0 60px rgba(0,255,255,0.2), inset 0 0 50px rgba(0,0,0,0.5); 
-      border: 2px solid #ff00ff;
+      box-shadow: 0 0 30px rgba(255,179,0,0.3), 0 0 60px rgba(0,255,255,0.2), inset 0 0 50px rgba(0,0,0,0.5); 
+      border: 2px solid #ffb300;
       border-radius: 4px;
       position: relative;
       z-index: 2;
@@ -162,16 +162,16 @@
       display: none;
       background: rgba(10,10,26,0.95);
       padding: 40px 60px;
-      border: 3px solid #ff00ff;
+      border: 3px solid #ffb300;
       border-radius: 10px;
-      box-shadow: 0 0 30px #ff00ff, 0 0 60px rgba(255,0,255,0.5);
+      box-shadow: 0 0 30px #ffb300, 0 0 60px rgba(255,179,0,0.5);
       white-space: nowrap;
     }
     #gameOver h2 { 
       font-size: 3rem; 
-      color: #ff0066; 
+      color: #ff4444; 
       margin-bottom: 10px; 
-      text-shadow: 0 0 10px #ff0066, 0 0 20px #ff0066;
+      text-shadow: 0 0 10px #ff4444, 0 0 20px #ff4444;
       animation: blink 1s step-end infinite;
     }
     #gameOver p { font-size: 1.2rem; margin-bottom: 20px; color: #00ffff; }
@@ -222,10 +222,10 @@
       align-items: center;
       gap: 8px;
       background: rgba(10,10,26,0.9);
-      border: 2px solid #ff00ff;
+      border: 2px solid #ffb300;
       border-radius: 25px;
       padding: 6px 12px;
-      box-shadow: 0 0 20px rgba(255,0,255,0.3);
+      box-shadow: 0 0 20px rgba(255,179,0,0.3);
       transition: all 0.3s ease;
       overflow: hidden;
       max-width: 160px;
@@ -251,9 +251,9 @@
       text-shadow: 0 0 10px #00ffff;
     }
     #musicIcon.muted {
-      border-color: #ff0066;
-      color: #ff0066;
-      text-shadow: 0 0 10px #ff0066;
+      border-color: #ff4444;
+      color: #ff4444;
+      text-shadow: 0 0 10px #ff4444;
     }
     #musicInfo {
       display: flex;
@@ -278,8 +278,8 @@
     }
     #muteIndicator {
       font-size: 0.5rem;
-      color: #ff0066;
-      text-shadow: 0 0 5px #ff0066;
+      color: #ff4444;
+      text-shadow: 0 0 5px #ff4444;
       height: 12px;
     }
     #muteIndicator.active::before {
@@ -449,9 +449,9 @@
       box-shadow: 0 0 15px rgba(0,255,255,0.5);
     }
     #muteBtn.muted {
-      border-color: #ff0066;
-      color: #ff0066;
-      text-shadow: 0 0 10px #ff0066;
+      border-color: #ff4444;
+      color: #ff4444;
+      text-shadow: 0 0 10px #ff4444;
     }
   </style>
   <script src="https://cdn.jsdelivr.net/npm/planck@1.5.0/dist/planck.min.js"></script>
@@ -799,10 +799,10 @@
       doubleScore:  { icon: '🎯', name: 'Punteggio x2', type: 'upgrade',   color: '#ffee00', duration: 3 },
       calmWind:     { icon: '🧘', name: 'Vento Calmo',  type: 'upgrade',   color: '#aaffcc', duration: 2 },
       // DOWNGRADE (neon rosso/magenta)
-      gust:         { icon: '🌪️', name: 'Raffica',      type: 'downgrade', color: '#ff0066', duration: 2 },
+      gust:         { icon: '🌪️', name: 'Raffica',      type: 'downgrade', color: '#ff4444', duration: 2 },
       butter:       { icon: '🧈', name: 'Burro',        type: 'downgrade', color: '#ffaa00', duration: 3 },
       earthquake:   { icon: '🍾', name: 'Terremoto',    type: 'downgrade', color: '#ff3300', duration: 0 },
-      mysteryPiece: { icon: '🎲', name: 'Mistero',      type: 'downgrade', color: '#bb00ff', duration: 1 },
+      mysteryPiece: { icon: '🎲', name: 'Mistero',      type: 'downgrade', color: '#66aaff', duration: 1 },
       fog:          { icon: '🙈', name: 'Nebbia',       type: 'downgrade', color: '#9999aa', duration: 2 },
       bounce:       { icon: '🪃', name: 'Rimbalzo',     type: 'downgrade', color: '#ff6600', duration: 3 },
       hyper:        { icon: '⚡', name: 'Ipervelocità', type: 'downgrade', color: '#ffdd00', duration: 2 }
